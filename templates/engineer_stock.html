@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Available Stock - Stock Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-boxes"></i> Available Stock</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('request_stock') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Request Stock
+        </a>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="GET">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Search stock items..." value="{{ search }}">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                {% if search %}
+                <a href="{{ url_for('engineer_stock') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Stock Items -->
+<div class="row">
+    {% if stock_items %}
+        {% for item in stock_items %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 {% if item.available_quantity == 0 %}border-danger{% elif item.available_quantity < 10 %}border-warning{% else %}border-success{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.name }}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">{{ item.item_id }}</h6>
+                    <p class="card-text">{{ item.description or 'No description available' }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Available:</strong>
+                            {% if item.available_quantity == 0 %}
+                            <span class="text-danger">{{ item.available_quantity }} {{ item.unit }}</span>
+                            {% elif item.available_quantity < 10 %}
+                            <span class="text-warning">{{ item.available_quantity }} {{ item.unit }}</span>
+                            {% else %}
+                            <span class="text-success">{{ item.available_quantity }} {{ item.unit }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <strong>Total:</strong> {{ item.total_quantity }} {{ item.unit }}
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    {% set percentage = ((item.available_quantity / item.total_quantity) * 100) if item.total_quantity > 0 else 0 %}
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar {% if percentage == 0 %}bg-danger{% elif percentage < 30 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" style="width: {{ percentage }}%" 
+                             aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                    
+                    <!-- Status Badge -->
+                    {% if item.available_quantity == 0 %}
+                    <span class="badge bg-danger mb-2">Out of Stock</span>
+                    {% elif item.available_quantity < 10 %}
+                    <span class="badge bg-warning mb-2">Low Stock</span>
+                    {% else %}
+                    <span class="badge bg-success mb-2">Available</span>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    {% if item.available_quantity > 0 %}
+                    <a href="{{ url_for('request_stock') }}?item={{ item.id }}" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-shopping-cart"></i> Request This Item
+                    </a>
+                    {% else %}
+                    <button class="btn btn-secondary btn-sm w-100" disabled>
+                        <i class="fas fa-times-circle"></i> Out of Stock
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-boxes fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted">No stock items found</h4>
+                <p class="text-muted">
+                    {% if search %}
+                    No items match your search criteria. <a href="{{ url_for('engineer_stock') }}">View all items</a>
+                    {% else %}
+                    The inventory is currently empty. Contact your HOD to add stock items.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Quick Request Form (if single item selected) -->
+{% if request.args.get('item') %}
+{% set selected_item = stock_items|selectattr('id', 'equalto', request.args.get('item')|int)|first %}
+{% if selected_item %}
+<div class="modal fade" id="quickRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Request: {{ selected_item.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('request_stock') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="stock_item_id" value="{{ selected_item.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="requested_quantity" class="form-label">Quantity Needed</label>
+                        <input type="number" class="form-control" name="requested_quantity" 
+                               min="1" max="{{ selected_item.available_quantity }}" required>
+                        <div class="form-text">Available: {{ selected_item.available_quantity }} {{ selected_item.unit }}</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" name="notes" rows="3" 
+                                  placeholder="Add any special requirements or notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var quickRequestModal = new bootstrap.Modal(document.getElementById('quickRequestModal'));
+    quickRequestModal.show();
+});
+</script>
+{% endif %}
+{% endif %}
+{% endblock %}

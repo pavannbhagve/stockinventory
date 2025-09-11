@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Management - Stock Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-boxes"></i> Stock Management</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('create_stock_item') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Stock Item
+        </a>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="GET">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Search stock items..." value="{{ search }}">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                {% if search %}
+                <a href="{{ url_for('hod_stock') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Stock Items Table -->
+<div class="card shadow">
+    <div class="card-body">
+        {% if stock_items %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Item ID</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Total Qty</th>
+                        <th>Available Qty</th>
+                        <th>Unit</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stock_items %}
+                    <tr>
+                        <td><strong>{{ item.item_id }}</strong></td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.description or '-' }}</td>
+                        <td>{{ item.total_quantity }}</td>
+                        <td>
+                            {% if item.available_quantity < 10 %}
+                            <span class="text-danger font-weight-bold">{{ item.available_quantity }}</span>
+                            {% else %}
+                            {{ item.available_quantity }}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.unit }}</td>
+                        <td>
+                            {% if item.available_quantity == 0 %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                            {% elif item.available_quantity < 10 %}
+                            <span class="badge bg-warning">Low Stock</span>
+                            {% else %}
+                            <span class="badge bg-success">In Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#viewStock{{ item.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- View Stock Modal -->
+                    <div class="modal fade" id="viewStock{{ item.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Stock Item Details</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Item ID:</strong> {{ item.item_id }}</p>
+                                            <p><strong>Name:</strong> {{ item.name }}</p>
+                                            <p><strong>Description:</strong> {{ item.description or 'No description' }}</p>
+                                            <p><strong>Unit:</strong> {{ item.unit }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Total Quantity:</strong> {{ item.total_quantity }}</p>
+                                            <p><strong>Available Quantity:</strong> {{ item.available_quantity }}</p>
+                                            <p><strong>Allocated:</strong> {{ item.total_quantity - item.available_quantity }}</p>
+                                            <p><strong>Created:</strong> {{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-boxes fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No stock items found.</p>
+            <a href="{{ url_for('create_stock_item') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add First Stock Item
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

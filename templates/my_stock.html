@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}My Stock - Stock Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-box-open"></i> My Personal Stock</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="GET" class="d-flex">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                <option value="Available" {% if status_filter == 'Available' %}selected{% endif %}>Available</option>
+                <option value="Used" {% if status_filter == 'Used' %}selected{% endif %}>Used</option>
+                <option value="Returned" {% if status_filter == 'Returned' %}selected{% endif %}>Returned</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<!-- Stock Items -->
+<div class="card shadow">
+    <div class="card-body">
+        {% if stock_logs %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                        <th>Received</th>
+                        <th>Last Updated</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in stock_logs %}
+                    <tr>
+                        <td>
+                            <strong>{{ log.stock_item.name }}</strong><br>
+                            <small class="text-muted">{{ log.stock_item.item_id }}</small>
+                        </td>
+                        <td>{{ log.quantity }} {{ log.stock_item.unit }}</td>
+                        <td>
+                            {% if log.status == 'Available' %}
+                            <span class="badge bg-success">Available</span>
+                            {% elif log.status == 'Used' %}
+                            <span class="badge bg-warning">Used</span>
+                            {% elif log.status == 'Returned' %}
+                            <span class="badge bg-info">Returned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if log.used_at %}
+                            {{ log.used_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% elif log.returned_at %}
+                            {{ log.returned_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                            {{ log.received_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% endif %}
+                        </td>
+                        <td>{{ log.notes or '-' }}</td>
+                        <td>
+                            {% if log.status == 'Available' %}
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-warning" 
+                                        data-bs-toggle="modal" data-bs-target="#useModal{{ log.id }}">
+                                    <i class="fas fa-tools"></i> Use
+                                </button>
+                                <button type="button" class="btn btn-info" 
+                                        data-bs-toggle="modal" data-bs-target="#returnModal{{ log.id }}">
+                                    <i class="fas fa-undo"></i> Return
+                                </button>
+                            </div>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                    data-bs-toggle="modal" data-bs-target="#viewModal{{ log.id }}">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Use Modal -->
+                    {% if log.status == 'Available' %}
+                    <div class="modal fade" id="useModal{{ log.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('update_stock_log', log_id=log.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Mark as Used</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Item:</strong> {{ log.stock_item.name }}</p>
+                                        <p><strong>Quantity:</strong> {{ log.quantity }} {{ log.stock_item.unit }}</p>
+                                        
+                                        <div class="mb-3">
+                                            <label for="use_notes{{ log.id }}" class="form-label">Usage Notes</label>
+                                            <textarea class="form-control" name="notes" rows="3" 
+                                                      placeholder="Where/how was this item used? (Optional)"></textarea>
+                                        </div>
+                                        
+                                        <div class="alert alert-warning">
+                                            <strong>Note:</strong> Once marked as used, this item will be removed from available stock.
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" name="action" value="use" class="btn btn-warning">
+                                            <i class="fas fa-tools"></i> Mark as Used
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Return Modal -->
+                    <div class="modal fade" id="returnModal{{ log.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('update_stock_log', log_id=log.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Return to Inventory</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Item:</strong> {{ log.stock_item.name }}</p>
+                                        <p><strong>Quantity:</strong> {{ log.quantity }} {{ log.stock_item.unit }}</p>
+                                        
+                                        <div class="mb-3">
+                                            <label for="return_notes{{ log.id }}" class="form-label">Return Reason</label>
+                                            <textarea class="form-control" name="notes" rows="3" required
+                                                      placeholder="Why are you returning this item? (Required)"></textarea>
+                                        </div>
+                                        
+                                        <div class="alert alert-info">
+                                            <strong>Note:</strong> This item will be returned to the main inventory for others to request.
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" name="action" value="return" class="btn btn-info">
+                                            <i class="fas fa-undo"></i> Return to Inventory
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- View Modal -->
+                    <div class="modal fade" id="viewModal{{ log.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Stock Log Details</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p><strong>Item:</strong> {{ log.stock_item.name }} ({{ log.stock_item.item_id }})</p>
+                                    <p><strong>Quantity:</strong> {{ log.quantity }} {{ log.stock_item.unit }}</p>
+                                    <p><strong>Status:</strong> 
+                                        {% if log.status == 'Available' %}
+                                        <span class="badge bg-success">Available</span>
+                                        {% elif log.status == 'Used' %}
+                                        <span class="badge bg-warning">Used</span>
+                                        {% elif log.status == 'Returned' %}
+                                        <span class="badge bg-info">Returned</span>
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Received:</strong> {{ log.received_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                    {% if log.used_at %}
+                                    <p><strong>Used:</strong> {{ log.used_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                    {% endif %}
+                                    {% if log.returned_at %}
+                                    <p><strong>Returned:</strong> {{ log.returned_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                    {% endif %}
+                                    {% if log.request_id %}
+                                    <p><strong>From Request:</strong> #{{ log.request_id }}</p>
+                                    {% endif %}
+                                    {% if log.notes %}
+                                    <p><strong>Notes:</strong> {{ log.notes }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-box-open fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted">No personal stock found</h4>
+            <p class="text-muted">
+                {% if status_filter != 'all' %}
+                No items with status "{{ status_filter }}". <a href="{{ url_for('my_stock') }}">View all items</a>
+                {% else %}
+                You don't have any personal stock items yet. Request items from the inventory to get started.
+                {% endif %}
+            </p>
+            <a href="{{ url_for('request_stock') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Request Stock Items
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

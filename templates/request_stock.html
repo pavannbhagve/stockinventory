@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Request Stock - Stock Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-plus-circle"></i> Request Stock Item
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="stock_item_id" class="form-label">Select Item <span class="text-danger">*</span></label>
+                        <select class="form-select" id="stock_item_id" name="stock_item_id" required>
+                            <option value="">Choose an item...</option>
+                            {% for item in stock_items %}
+                            <option value="{{ item.id }}" data-available="{{ item.available_quantity }}" data-unit="{{ item.unit }}">
+                                {{ item.name }} ({{ item.item_id }}) - Available: {{ item.available_quantity }} {{ item.unit }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Please select an item</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="requested_quantity" class="form-label">Quantity Needed <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="requested_quantity" name="requested_quantity" 
+                               required min="1" disabled>
+                        <div class="form-text" id="availability-info">Select an item to see availability</div>
+                        <div class="invalid-feedback">Please enter a valid quantity</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="4" 
+                                  placeholder="Add any special requirements, purpose, or additional information..."></textarea>
+                        <div class="form-text">Optional: Provide context for your request</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('engineer_stock') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" disabled id="submit-btn">
+                            <i class="fas fa-paper-plane"></i> Submit Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not stock_items %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-warning text-center">
+            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+            <h5>No Items Available</h5>
+            <p>There are currently no stock items available for request. Please contact your HOD or wait for stock to be replenished.</p>
+            <a href="{{ url_for('engineer_dashboard') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var itemSelect = document.getElementById('stock_item_id');
+    var quantityInput = document.getElementById('requested_quantity');
+    var availabilityInfo = document.getElementById('availability-info');
+    var submitBtn = document.getElementById('submit-btn');
+    var form = document.querySelector('.needs-validation');
+
+    // Handle item selection
+    itemSelect.addEventListener('change', function() {
+        var selectedOption = this.options[this.selectedIndex];
+        
+        if (selectedOption.value) {
+            var available = parseInt(selectedOption.getAttribute('data-available'));
+            var unit = selectedOption.getAttribute('data-unit');
+            
+            quantityInput.disabled = false;
+            quantityInput.max = available;
+            quantityInput.value = '';
+            
+            availabilityInfo.innerHTML = `Available: ${available} ${unit}`;
+            availabilityInfo.className = available > 0 ? 'form-text text-success' : 'form-text text-danger';
+            
+            if (available === 0) {
+                quantityInput.disabled = true;
+                availabilityInfo.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Out of stock`;
+            }
+        } else {
+            quantityInput.disabled = true;
+            quantityInput.value = '';
+            availabilityInfo.innerHTML = 'Select an item to see availability';
+            availabilityInfo.className = 'form-text';
+        }
+        
+        updateSubmitButton();
+    });
+
+    // Handle quantity validation
+    quantityInput.addEventListener('input', function() {
+        var quantity = parseInt(this.value);
+        var max = parseInt(this.max);
+        
+        if (quantity > max) {
+            this.setCustomValidity(`Maximum available quantity is ${max}`);
+        } else if (quantity < 1) {
+            this.setCustomValidity('Quantity must be at least 1');
+        } else {
+            this.setCustomValidity('');
+        }
+        
+        updateSubmitButton();
+    });
+
+    function updateSubmitButton() {
+        var isValid = itemSelect.value && quantityInput.value && quantityInput.checkValidity();
+        submitBtn.disabled = !isValid;
+    }
+
+    // Form validation
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+
+    // Pre-select item if coming from URL parameter
+    var urlParams = new URLSearchParams(window.location.search);
+    var preSelectedItem = urlParams.get('item');
+    if (preSelectedItem) {
+        itemSelect.value = preSelectedItem;
+        itemSelect.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %}

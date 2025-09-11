@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Create Engineer - Stock Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-plus"></i> Create New Engineer
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" required 
+                               placeholder="Enter unique username">
+                        <div class="form-text">Username must be unique and will be used for login</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required 
+                               minlength="6" placeholder="Enter secure password">
+                        <div class="form-text">Password must be at least 6 characters long</div>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('hod_engineers') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Create Engineer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password strength indicator
+    const passwordInput = document.getElementById('password');
+    const strengthDiv = document.createElement('div');
+    strengthDiv.className = 'mt-2';
+    passwordInput.parentNode.appendChild(strengthDiv);
+    
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        let strength = 0;
+        let feedback = [];
+        
+        if (password.length >= 6) strength++;
+        else feedback.push('At least 6 characters');
+        
+        if (/[A-Z]/.test(password)) strength++;
+        else feedback.push('One uppercase letter');
+        
+        if (/[0-9]/.test(password)) strength++;
+        else feedback.push('One number');
+        
+        let color = 'danger';
+        let text = 'Weak';
+        
+        if (strength >= 2) {
+            color = 'warning';
+            text = 'Medium';
+        }
+        if (strength >= 3) {
+            color = 'success';
+            text = 'Strong';
+        }
+        
+        strengthDiv.innerHTML = `<small class="text-${color}">Password strength: ${text}</small>`;
+    });
+});
+</script>
+{% endblock %}

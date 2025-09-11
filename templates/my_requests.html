@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}My Requests - Stock Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-clipboard-list"></i> My Stock Requests</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('request_stock') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> New Request
+        </a>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="GET" class="d-flex">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                <option value="In Transit" {% if status_filter == 'In Transit' %}selected{% endif %}>In Transit</option>
+                <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
+                <option value="Denied" {% if status_filter == 'Denied' %}selected{% endif %}>Denied</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<!-- Requests -->
+<div class="row">
+    {% if requests %}
+        {% for request in requests %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 {% if request.status == 'Pending' %}border-warning{% elif request.status == 'Approved' %}border-success{% elif request.status == 'In Transit' %}border-info{% elif request.status == 'Received' %}border-success{% elif request.status == 'Denied' %}border-danger{% endif %}">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">Request #{{ request.id }}</h6>
+                        {% if request.status == 'Pending' %}
+                        <span class="badge bg-warning">Pending</span>
+                        {% elif request.status == 'Approved' %}
+                        <span class="badge bg-success">Approved</span>
+                        {% elif request.status == 'In Transit' %}
+                        <span class="badge bg-info">In Transit</span>
+                        {% elif request.status == 'Received' %}
+                        <span class="badge bg-success">Received</span>
+                        {% elif request.status == 'Denied' %}
+                        <span class="badge bg-danger">Denied</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ request.stock_item.name }}</h5>
+                    <p class="card-text text-muted mb-2">{{ request.stock_item.item_id }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Quantity:</strong><br>
+                            <span class="h5">{{ request.requested_quantity }} {{ request.stock_item.unit }}</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Requested:</strong><br>
+                            <small>{{ request.requested_at.strftime('%Y-%m-%d') }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if request.docket_number %}
+                    <div class="alert alert-info py-2 mb-3">
+                        <strong>Tracking:</strong> {{ request.docket_number }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if request.notes %}
+                    <div class="mb-3">
+                        <strong>Notes:</strong>
+                        <p class="small text-muted">{{ request.notes }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if request.approval_notes %}
+                    <div class="mb-3">
+                        <strong>{% if request.status == 'Denied' %}Denial Reason{% else %}Approval Notes{% endif %}:</strong>
+                        <p class="small text-muted">{{ request.approval_notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    {% if request.status == 'In Transit' %}
+                    <form method="POST" action="{{ url_for('receive_request', request_id=request.id) }}">
+                        <button type="submit" class="btn btn-success btn-sm w-100" 
+                                onclick="return confirm('Mark this request as received?')">
+                            <i class="fas fa-check"></i> Mark as Received
+                        </button>
+                    </form>
+                    {% else %}
+                    <button type="button" class="btn btn-outline-info btn-sm w-100" 
+                            data-bs-toggle="modal" data-bs-target="#detailsModal{{ request.id }}">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <div class="modal fade" id="detailsModal{{ request.id }}" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Request Details #{{ request.id }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Item Information</h6>
+                                <p><strong>Name:</strong> {{ request.stock_item.name }}</p>
+                                <p><strong>Item ID:</strong> {{ request.stock_item.item_id }}</p>
+                                <p><strong>Description:</strong> {{ request.stock_item.description or 'No description' }}</p>
+                                <p><strong>Requested Quantity:</strong> {{ request.requested_quantity }} {{ request.stock_item.unit }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Status & Timeline</h6>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <i class="fas fa-plus-circle text-primary"></i>
+                                        <strong>Requested:</strong> {{ request.requested_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </div>
+                                    {% if request.approved_at %}
+                                    <div class="timeline-item">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        <strong>{% if request.status == 'Denied' %}Denied{% else %}Approved{% endif %}:</strong> {{ request.approved_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </div>
+                                    {% endif %}
+                                    {% if request.sent_at %}
+                                    <div class="timeline-item">
+                                        <i class="fas fa-shipping-fast text-info"></i>
+                                        <strong>Sent:</strong> {{ request.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </div>
+                                    {% endif %}
+                                    {% if request.received_at %}
+                                    <div class="timeline-item">
+                                        <i class="fas fa-box-open text-success"></i>
+                                        <strong>Received:</strong> {{ request.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if request.docket_number %}
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <strong>Tracking Number:</strong> {{ request.docket_number }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if request.notes %}
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6>Your Notes</h6>
+                                <p class="text-muted">{{ request.notes }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if request.approval_notes %}
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6>{% if request.status == 'Denied' %}Denial Reason{% else %}HOD Notes{% endif %}</h6>
+                                <p class="text-muted">{{ request.approval_notes }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="fas fa-clipboard-list fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted">No requests found</h4>
+            <p class="text-muted">
+                {% if status_filter != 'all' %}
+                No requests with status "{{ status_filter }}". <a href="{{ url_for('my_requests') }}">View all requests</a>
+                {% else %}
+                You haven't made any stock requests yet.
+                {% endif %}
+            </p>
+            <a href="{{ url_for('request_stock') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Make Your First Request
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.timeline-item {
+    padding: 0.5rem 0;
+    border-left: 2px solid #e3e6f0;
+    margin-left: 1rem;
+    padding-left: 1rem;
+    position: relative;
+}
+
+.timeline-item i {
+    position: absolute;
+    left: -0.6rem;
+    background: white;
+    padding: 0.2rem;
+}
+</style>
+{% endblock %}

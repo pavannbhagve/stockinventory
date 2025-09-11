@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Requests - Stock Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-clipboard-list"></i> Stock Requests</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filter and Search -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="GET" class="d-flex">
+            <select name="status" class="form-select me-2" onchange="this.form.submit()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                <option value="In Transit" {% if status_filter == 'In Transit' %}selected{% endif %}>In Transit</option>
+                <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
+                <option value="Denied" {% if status_filter == 'Denied' %}selected{% endif %}>Denied</option>
+            </select>
+            <input type="hidden" name="search" value="{{ search }}">
+        </form>
+    </div>
+    <div class="col-md-8">
+        <form method="GET">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Search by engineer, item..." value="{{ search }}">
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fas fa-search"></i>
+                </button>
+                {% if search %}
+                <a href="{{ url_for('hod_requests', status=status_filter) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Requests Table -->
+<div class="card shadow">
+    <div class="card-body">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Engineer</th>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                        <th>Requested</th>
+                        <th>Docket</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in requests %}
+                    <tr class="{% if request.pending_days >= 7 %}table-danger{% elif request.pending_days >= 3 %}table-warning{% elif request.pending_days >= 1 and request.status == 'Pending' %}table-info{% endif %}">
+                        <td>#{{ request.id }}</td>
+                        <td>{{ request.requester.username }}</td>
+                        <td>
+                            <strong>{{ request.stock_item.name }}</strong><br>
+                            <small class="text-muted">{{ request.stock_item.item_id }}</small>
+                        </td>
+                        <td>{{ request.requested_quantity }} {{ request.stock_item.unit }}</td>
+                        <td>
+                            {% if request.status == 'Pending' %}
+                            <span class="badge bg-warning">Pending</span>
+                            {% if request.pending_days >= 1 %}
+                            <br><small class="text-danger">({{ request.pending_days }} days)</small>
+                            {% endif %}
+                            {% elif request.status == 'Approved' %}
+                            <span class="badge bg-success">Approved</span>
+                            {% elif request.status == 'In Transit' %}
+                            <span class="badge bg-info">In Transit</span>
+                            {% elif request.status == 'Received' %}
+                            <span class="badge bg-success">Received</span>
+                            {% elif request.status == 'Denied' %}
+                            <span class="badge bg-danger">Denied</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ request.requested_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ request.docket_number or '-' }}</td>
+                        <td>
+                            {% if request.status == 'Pending' %}
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal{{ request.id }}">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#denyModal{{ request.id }}">
+                                    <i class="fas fa-times"></i> Deny
+                                </button>
+                            </div>
+                            {% elif request.status == 'Approved' %}
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sendModal{{ request.id }}">
+                                <i class="fas fa-shipping-fast"></i> Send
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#viewModal{{ request.id }}">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Approve Modal -->
+                    <div class="modal fade" id="approveModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('approve_request', request_id=request.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Approve Request #{{ request.id }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Engineer:</strong> {{ request.requester.username }}</p>
+                                        <p><strong>Item:</strong> {{ request.stock_item.name }} ({{ request.stock_item.item_id }})</p>
+                                        <p><strong>Requested:</strong> {{ request.requested_quantity }} {{ request.stock_item.unit }}</p>
+                                        <p><strong>Available:</strong> {{ request.stock_item.available_quantity }} {{ request.stock_item.unit }}</p>
+                                        
+                                        {% if request.requested_quantity > request.stock_item.available_quantity %}
+                                        <div class="alert alert-danger">
+                                            <strong>Warning:</strong> Requested quantity exceeds available stock!
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="mb-3">
+                                            <label for="approval_notes{{ request.id }}" class="form-label">Approval Notes (Optional)</label>
+                                            <textarea class="form-control" name="approval_notes" rows="3" placeholder="Add any notes..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" name="action" value="approve" class="btn btn-success"
+                                                {% if request.requested_quantity > request.stock_item.available_quantity %}disabled{% endif %}>
+                                            <i class="fas fa-check"></i> Approve Request
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deny Modal -->
+                    <div class="modal fade" id="denyModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('approve_request', request_id=request.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Deny Request #{{ request.id }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Engineer:</strong> {{ request.requester.username }}</p>
+                                        <p><strong>Item:</strong> {{ request.stock_item.name }}</p>
+                                        <p><strong>Requested:</strong> {{ request.requested_quantity }} {{ request.stock_item.unit }}</p>
+                                        
+                                        <div class="mb-3">
+                                            <label for="denial_notes{{ request.id }}" class="form-label">Reason for Denial <span class="text-danger">*</span></label>
+                                            <textarea class="form-control" name="approval_notes" rows="3" required placeholder="Please provide reason for denial..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" name="action" value="deny" class="btn btn-danger">
+                                            <i class="fas fa-times"></i> Deny Request
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Send Modal -->
+                    {% if request.status == 'Approved' %}
+                    <div class="modal fade" id="sendModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('send_request', request_id=request.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Send Request #{{ request.id }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Engineer:</strong> {{ request.requester.username }}</p>
+                                        <p><strong>Item:</strong> {{ request.stock_item.name }}</p>
+                                        <p><strong>Quantity:</strong> {{ request.requested_quantity }} {{ request.stock_item.unit }}</p>
+                                        
+                                        <div class="mb-3">
+                                            <label for="docket_number{{ request.id }}" class="form-label">Docket Number <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" name="docket_number" required 
+                                                   placeholder="Enter courier/shipping docket number">
+                                            <div class="form-text">This will be visible to the engineer for tracking</div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-shipping-fast"></i> Mark as Sent
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- View Modal -->
+                    <div class="modal fade" id="viewModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Request Details #{{ request.id }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Engineer:</strong> {{ request.requester.username }}</p>
+                                            <p><strong>Item:</strong> {{ request.stock_item.name }}</p>
+                                            <p><strong>Item ID:</strong> {{ request.stock_item.item_id }}</p>
+                                            <p><strong>Requested Quantity:</strong> {{ request.requested_quantity }} {{ request.stock_item.unit }}</p>
+                                            <p><strong>Status:</strong> {{ request.status }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Requested:</strong> {{ request.requested_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                            {% if request.approved_at %}
+                                            <p><strong>Approved:</strong> {{ request.approved_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                            {% endif %}
+                                            {% if request.sent_at %}
+                                            <p><strong>Sent:</strong> {{ request.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                            {% endif %}
+                                            {% if request.received_at %}
+                                            <p><strong>Received:</strong> {{ request.received_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                            {% endif %}
+                                            {% if request.docket_number %}
+                                            <p><strong>Docket Number:</strong> {{ request.docket_number }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if request.notes %}
+                                    <p><strong>Engineer Notes:</strong> {{ request.notes }}</p>
+                                    {% endif %}
+                                    {% if request.approval_notes %}
+                                    <p><strong>Approval Notes:</strong> {{ request.approval_notes }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No stock requests found.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

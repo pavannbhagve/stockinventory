@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Add Stock Item - Stock Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-plus-circle"></i> Add New Stock Item
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="needs-validation" novalidate>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="item_id" class="form-label">Item ID <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="item_id" name="item_id" required 
+                                       placeholder="e.g., TOOL-001">
+                                <div class="invalid-feedback">Item ID is required and must be unique</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="unit" class="form-label">Unit <span class="text-danger">*</span></label>
+                                <select class="form-select" id="unit" name="unit" required>
+                                    <option value="">Select unit...</option>
+                                    <option value="pcs">Pieces (pcs)</option>
+                                    <option value="kg">Kilograms (kg)</option>
+                                    <option value="ltr">Liters (ltr)</option>
+                                    <option value="mtr">Meters (mtr)</option>
+                                    <option value="box">Box</option>
+                                    <option value="set">Set</option>
+                                    <option value="roll">Roll</option>
+                                    <option value="pack">Pack</option>
+                                </select>
+                                <div class="invalid-feedback">Please select a unit</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Item Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required 
+                               placeholder="Enter item name">
+                        <div class="invalid-feedback">Item name is required</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="Enter item description (optional)"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="total_quantity" class="form-label">Total Quantity <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="total_quantity" name="total_quantity" 
+                               required min="0" placeholder="Enter total quantity">
+                        <div class="invalid-feedback">Please enter a valid quantity (0 or greater)</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('hod_stock') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Add Stock Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    var form = document.querySelector('.needs-validation');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    }, false);
+
+    // Item ID format validation
+    var itemIdInput = document.getElementById('item_id');
+    itemIdInput.addEventListener('input', function() {
+        var value = this.value.toUpperCase();
+        this.value = value;
+        
+        // Validate format (letters, numbers, hyphens)
+        if (!/^[A-Z0-9-]*$/.test(value)) {
+            this.setCustomValidity('Item ID can only contain letters, numbers, and hyphens');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+
+    // Quantity validation
+    var quantityInput = document.getElementById('total_quantity');
+    quantityInput.addEventListener('input', function() {
+        var value = parseInt(this.value);
+        if (isNaN(value) || value < 0) {
+            this.setCustomValidity('Quantity must be a positive number');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+});
+</script>
+{% endblock %}
