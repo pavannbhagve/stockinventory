@@ -11,8 +11,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -195,7 +195,7 @@ def send_email(to_email, subject, body, urgency_color='black'):
         return False
     
     try:
-        msg = MimeMultipart()
+        msg = MIMEMultipart()
         msg['From'] = SMTP_USER
         msg['To'] = to_email
         msg['Subject'] = f'[{urgency_color.upper()}] {subject}'
@@ -211,7 +211,7 @@ def send_email(to_email, subject, body, urgency_color='black'):
         </html>
         """
         
-        msg.attach(MimeText(html_body, 'html'))
+        msg.attach(MIMEText(html_body, 'html'))
         
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
         server.starttls()
